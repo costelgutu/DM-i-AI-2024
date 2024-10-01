@@ -42,17 +42,19 @@ def run_game():
         # Insert your own logic here to parse the state and 
         # select the next action to take
 
-        print(f'Vehicles: {state.vehicles}')
-        print(f'Signals: {state.signals}')
+        # print(f'Vehicles: {state.vehicles}')
+        # print(f'Signals: {state.signals}')
 
         signal_logic_errors = None
         prediction = {}
         prediction["signals"] = []
 
-        if state.simulation_ticks % 30 == 0:
+        if state.simulation_ticks % 1 == 0:
             prediction["signals"].append({"name": "A1", "state": "green"})
-        elif state.simulation_ticks % 30 == 15:
-            prediction["signals"].append({"name": "A1", "state": "red"})
+            prediction["signals"].append({"name": "A1LeftTurn", "state": "green"})
+            prediction["signals"].append({"name": "A2", "state": "green"})
+            prediction["signals"].append({"name": "A2LeftTurn", "state": "green"})
+
         
         # Update the desired phase of the traffic lights
         next_signals = {}

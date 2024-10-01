@@ -440,10 +440,28 @@ class TrafficSimulationEnvHandler():
             signal_groups=self.signal_groups,
             allowed_green_signal_combinations=self.allowed_green_signal_comb_dto,
             is_terminated=terminates_now
-        )       
+        )
 
         if self._output_queue:
-            self._output_queue.put(self.observable_state)         
+            self._output_queue.put(self.observable_state)
+
+        # Add the print statements here
+        print(f"\nSimulation Tick: {self.simulation_ticks}")
+        print(f"Total Score: {self._total_score}")
+        print("Vehicles:")
+        for vehicle in observed_vehicles:
+            print(f"  Leg: {vehicle.leg}, Distance to Stop: {vehicle.distance_to_stop} m, Speed: {vehicle.speed} m/s")
+        print("Signals:")
+        for signal in signals:
+            print(f"  Signal Group: {signal.name}, State: {signal.state}")
+        print(f"Signal Groups: {self.signal_groups}")
+        print("Legs:")
+        for leg in self.legs_dto:
+            print(f"  Leg Name: {leg.name}, Lanes: {leg.lanes}, Signal Groups: {leg.signal_groups}")
+        print("Allowed Green Signal Combinations:")
+        for combo in self.allowed_green_signal_comb_dto:
+            print(f"  Signal Group: {combo.name}, Compatible Groups: {combo.groups}")
+   
 
     def run_simulation(self):
 

@@ -1,5 +1,6 @@
 
 # Emily-specific files
+.cellclass
 .python-version
 .idea
 .vscode

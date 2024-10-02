@@ -42,8 +42,8 @@ def run_game():
         # Insert your own logic here to parse the state and 
         # select the next action to take
 
-        # print(f'Vehicles: {state.vehicles}')
-        # print(f'Signals: {state.signals}')
+        print(f'Vehicles: {state.vehicles}')
+        print(f'Signals: {state.signals}')
 
         signal_logic_errors = None
         prediction = {}

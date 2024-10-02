@@ -454,14 +454,7 @@ class TrafficSimulationEnvHandler():
         print("Signals:")
         for signal in signals:
             print(f"  Signal Group: {signal.name}, State: {signal.state}")
-        print(f"Signal Groups: {self.signal_groups}")
-        print("Legs:")
-        for leg in self.legs_dto:
-            print(f"  Leg Name: {leg.name}, Lanes: {leg.lanes}, Signal Groups: {leg.signal_groups}")
-        print("Allowed Green Signal Combinations:")
-        for combo in self.allowed_green_signal_comb_dto:
-            print(f"  Signal Group: {combo.name}, Compatible Groups: {combo.groups}")
-   
+
 
     def run_simulation(self):
 

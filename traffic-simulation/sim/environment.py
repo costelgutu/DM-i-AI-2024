@@ -505,22 +505,7 @@ class TrafficSimulationEnvHandler():
         )       
 
         if self._output_queue:
-<<<<<<< HEAD
             self._output_queue.put(self.observable_state)         
-=======
-            self._output_queue.put(self.observable_state)
-
-        # Add the print statements here
-        print(f"\nSimulation Tick: {self.simulation_ticks}")
-        print(f"Total Score: {self._total_score}")
-        print("Vehicles:")
-        for vehicle in observed_vehicles:
-            print(f"  Leg: {vehicle.leg}, Distance to Stop: {vehicle.distance_to_stop} m, Speed: {vehicle.speed} m/s")
-        print("Signals:")
-        for signal in signals:
-            print(f"  Signal Group: {signal.name}, State: {signal.state}")
-
->>>>>>> 71e319c409e8fcfd5bcacff2bcc7cd4290d34b54
 
     def run_simulation(self):
 

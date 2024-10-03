@@ -204,53 +204,59 @@ class Agent:
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
-        
+
         beta = min(1.0, self.beta_start + self.frame * (1.0 - self.beta_start) / self.beta_frames)
         self.frame += 1
-        
+
         transitions, idxs, is_weights = self.memory.sample(self.batch_size, beta)
-        
+
         batch = Transition(*zip(*transitions))
-        
+
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=self.device, dtype=torch.bool)
         non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
-        
+
         state_batch = torch.cat(batch.state).to(self.device)
         action_batch = torch.stack(batch.action).to(self.device)
         reward_batch = torch.cat(batch.reward).to(self.device)
-        
+
         # Forward pass to get Q-values for the current states
         policy_net_output = self.policy_net(state_batch)
         action_batch_indices = action_batch.long()
-        
+
         # Gather the Q-values corresponding to the chosen actions
         state_action_values = policy_net_output.gather(2, action_batch_indices.unsqueeze(-1)).squeeze(-1)
-        
+
         # Compute the expected Q values using the target network
         next_state_values = torch.zeros(self.batch_size, self.num_signal_groups, device=self.device)
         if non_final_next_states.size(0) > 0:
             next_state_q_values = self.target_net(non_final_next_states)
             next_state_values[non_final_mask] = next_state_q_values.max(2)[0].detach()
-        
+
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch.unsqueeze(1)
-        
+
+        # Reshape is_weights to [batch_size, 1] for broadcasting
+        is_weights_tensor = torch.tensor(is_weights, device=self.device).unsqueeze(1)  # Shape: [128, 1]
+
         # Compute the loss with importance-sampling weights
-        loss = (F.mse_loss(state_action_values, expected_state_action_values, reduction='none') * torch.tensor(is_weights, device=self.device)).mean()
-        
+        loss = (F.mse_loss(state_action_values, expected_state_action_values, reduction='none') * is_weights_tensor).mean()
+
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
-        
+
         # Clip gradients to prevent exploding gradients
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
-        
+
         self.optimizer.step()
-        
-        # Update priorities
-        priorities = (state_action_values - expected_state_action_values).abs().detach().cpu().numpy() + 1e-6
+
+        # Compute aggregated priorities (sum of TD-errors across signal groups)
+        td_errors = (state_action_values - expected_state_action_values).abs().detach().cpu().numpy()
+        priorities = td_errors.sum(axis=1) + 1e-6  # Shape: [batch_size]
+
+        # Update priorities in the replay memory
         self.memory.update_priorities(idxs, priorities)
-        
+
         print(f"Training Step: {self.steps_done}, Loss: {loss.item()}")
 
 
@@ -411,7 +417,7 @@ def run_game():
                 next_state_features['waiting_time']
             ])).float().unsqueeze(0).to(device)  # Shape: [1, 40]
 
-            action_tensor = torch.from_numpy(actions_array).unsqueeze(0).to(device)  # Shape: [1, NUM_SIGNAL_GROUPS]
+            action_tensor = torch.from_numpy(actions_array).to(device)  # Shape: [1, NUM_SIGNAL_GROUPS]
             
             # Store transition in memory
             agent.memory.push(Transition(state_tensor, action_tensor, next_state_tensor, reward_tensor))

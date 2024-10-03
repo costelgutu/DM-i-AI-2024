@@ -424,7 +424,12 @@ def run_game():
         if state.is_terminated:
             print(f"Episode Finished. Total Reward: {total_reward}")
 
+<<<<<<< HEAD
     agent.save_model()
+=======
+        print(f'Vehicles: {state.vehicles}')
+        print(f'Signals: {state.signals}')
+>>>>>>> 71e319c409e8fcfd5bcacff2bcc7cd4290d34b54
 
     total_reward = 0
     if state.total_score == 0:

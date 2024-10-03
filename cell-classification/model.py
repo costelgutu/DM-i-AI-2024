@@ -1,39 +1,80 @@
+# model.py
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
+from PIL import Image
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import load_model
 
-# Load the trained model once when the module is loaded
-model = load_model('vgg16_homogeneous_classification.h5')  # Replace with the path to your saved model
+# Device configuration
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def preprocess_image(image: np.ndarray) -> np.ndarray:
-    """
-    Preprocess the input image to match the model's expected input.
-    This includes resizing, normalizing, and any other preprocessing steps.
-    """
-    # Resize the image to match the input size of the model (e.g., 160x160 or 224x224)
-    img_size = (160, 160)  # Replace with the size you used for training (160, 160 or 224, 224)
-    
-    # Assuming image is a numpy array in its original size
-    image_resized = tf.image.resize(image, img_size)
-    
-    # Normalize the image (if required by the model)
-    image_normalized = image_resized / 255.0  # Assuming the model was trained on normalized images
-    
-    # Add a batch dimension (models expect a batch of inputs)
-    image_batch = np.expand_dims(image_normalized, axis=0)
-    
-    return image_batch
+# Define the model architecture (same as in your training code)
+def get_model():
+    # Load pre-trained ResNet50 model
+    model = models.resnet50(pretrained=False)  # We'll load our own weights
+    num_ftrs = model.fc.in_features
+    # Define custom classifier
+    model.fc = nn.Sequential(
+        nn.Linear(num_ftrs, 128),
+        nn.ReLU(),
+        nn.Dropout(0.5),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 1),
+        nn.Sigmoid()
+    )
+    return model
 
-### CALL YOUR CUSTOM MODEL VIA THIS FUNCTION ###
+# Load the model
+def load_model(model_path='best_model.pth'):
+    model = get_model()
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device)
+    model.eval()
+    return model
+
+# Initialize the model once when the module is imported
+model = load_model('best_model.pth')  # Ensure the path is correct
+
+# Define the same transforms used during training
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),  # Resize images to 224x224
+    transforms.ToTensor(),          # Convert PIL image to PyTorch tensor
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],  # Normalize as per ImageNet
+                         std=[0.229, 0.224, 0.225])
+])
+
 def predict(image: np.ndarray) -> int:
-    # Preprocess the image
-    preprocessed_image = preprocess_image(image)
-    
-    # Make the prediction using the loaded model
-    prediction = model.predict(preprocessed_image)
-    
-    # Since it's a binary classification, the output will be a probability between 0 and 1.
-    # We can threshold the prediction at 0.5 to classify as homogenous (1) or heterogenous (0).
-    is_homogeneous = 1 if prediction >= 0.5 else 0
+    """
+    Predicts whether the cell image is homogenous or not.
 
-    return is_homogeneous
+    Args:
+        image (np.ndarray): The input image as a NumPy array.
+
+    Returns:
+        int: 1 if homogenous, 0 otherwise.
+    """
+    try:
+        # Convert NumPy array to PIL Image
+        if image.ndim == 2:
+            # Grayscale to RGB
+            image = Image.fromarray(image).convert('RGB')
+        elif image.shape[2] == 4:
+            # RGBA to RGB
+            image = Image.fromarray(image).convert('RGB')
+        else:
+            image = Image.fromarray(image).convert('RGB')
+
+        # Apply transforms
+        input_tensor = transform(image).unsqueeze(0).to(device)  # Add batch dimension
+
+        # Model inference
+        with torch.no_grad():
+            output = model(input_tensor)
+            prob = output.item()
+            predicted_label = int(prob >= 0.5)  # Threshold at 0.5
+
+        return predicted_label
+    except Exception as e:
+        logger.error(f"Error during prediction: {e}")
+        return 0  # Default to 0 in case of error

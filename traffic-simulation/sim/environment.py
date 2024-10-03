@@ -12,6 +12,7 @@ import sys
 from multiprocessing import Queue
 import yaml
 import pathlib
+import numpy as np
 
 from loguru import logger
 
@@ -162,7 +163,8 @@ class TrafficSimulationEnvHandler():
             signal_groups=self.signal_groups,
             legs=self.legs_dto,
             allowed_green_signal_combinations=self.allowed_green_signal_comb_dto,
-            is_terminated=False
+            is_terminated=False,
+            vehicle_waiting_time = self.get_all_vehicle_waiting_times()
         )
 
         self._is_initialized = False
@@ -180,6 +182,61 @@ class TrafficSimulationEnvHandler():
         self._input_queue = None
         self._output_queue = None
         self._error_queue = None
+
+    def get_all_vehicle_waiting_times(self):
+        """
+        Returns a dictionary containing waiting times for all vehicles.
+        """
+        return self.vehicle_waiting_time
+
+    def _collect_state(self):
+        state = {}
+        # Initialize arrays
+        state['queue_length'] = np.zeros(14)
+        state['num_of_vehicles'] = np.zeros(14)
+        state['waiting_time'] = np.zeros(14)
+        state['cur_phase'] = np.zeros(14)
+        state['next_phase'] = np.zeros(14)
+        state['time_this_phase'] = np.zeros(14)
+        state['if_terminal'] = np.array([int(self.observable_state.is_terminated)])
+        state['historical_traffic'] = self._get_historical_traffic()
+
+        # Map feature can be a 2D grid
+        state['map_feature'] = self._get_map_feature()
+
+        # Populate the arrays with data from the simulation
+        for idx, group in enumerate(self.signal_groups):
+            # Queue length and number of vehicles
+            queue_length = self._get_queue_length(group)
+            num_of_vehicles = self._get_num_of_vehicles(group)
+            waiting_time = self._get_waiting_time(group)
+
+            # Signal phases
+            cur_phase = 1 if self.group_states[group][0] == 'green' else 0
+            next_phase = 1 if self.next_groups[group] == 'green' else 0
+            time_this_phase = self.group_states[group][1]
+
+            # Update state
+            state['queue_length'][idx] = queue_length
+            state['num_of_vehicles'][idx] = num_of_vehicles
+            state['waiting_time'][idx] = waiting_time
+            state['cur_phase'][idx] = cur_phase
+            state['next_phase'][idx] = next_phase
+            state['time_this_phase'][idx] = time_this_phase
+
+        return state
+
+    def _normalize_state(self, state):
+       
+        return state
+
+    def _get_historical_traffic(self):
+        # Implement logic to store and return historical traffic data
+        pass
+
+    def _get_map_feature(self):
+        # Implement logic to create a grid representation of vehicle positions
+        pass
 
     def set_queues(self, input_q, output_q, error_q):
         self._input_queue = input_q
@@ -359,7 +416,7 @@ class TrafficSimulationEnvHandler():
                         continue
                     vehicle_speed = abs(traci.vehicle.getSpeed(vehicle))
 
-                    observed_vehicles.append(VehicleDto(speed=round(vehicle_speed, 1), 
+                    observed_vehicles.append(VehicleDto(id=vehicle, speed=round(vehicle_speed, 1), 
                                                         distance_to_stop=round(distance, 1),
                                                         leg=leg_name))
 
@@ -410,6 +467,10 @@ class TrafficSimulationEnvHandler():
         # Update the score
         self._total_score = self._calculate_score()
 
+        all_waiting_times = self.get_all_vehicle_waiting_times()
+        # logger.info(f"Current waiting times: {all_waiting_times}")
+
+
         # Get the next phase from the request and set it
         with lock:
             try:
@@ -439,29 +500,12 @@ class TrafficSimulationEnvHandler():
             legs=self.legs_dto,
             signal_groups=self.signal_groups,
             allowed_green_signal_combinations=self.allowed_green_signal_comb_dto,
-            is_terminated=terminates_now
-        )
+            is_terminated=terminates_now,
+            vehicle_waiting_time=all_waiting_times
+        )       
 
         if self._output_queue:
-            self._output_queue.put(self.observable_state)
-
-        # Add the print statements here
-        print(f"\nSimulation Tick: {self.simulation_ticks}")
-        print(f"Total Score: {self._total_score}")
-        print("Vehicles:")
-        for vehicle in observed_vehicles:
-            print(f"  Leg: {vehicle.leg}, Distance to Stop: {vehicle.distance_to_stop} m, Speed: {vehicle.speed} m/s")
-        print("Signals:")
-        for signal in signals:
-            print(f"  Signal Group: {signal.name}, State: {signal.state}")
-        print(f"Signal Groups: {self.signal_groups}")
-        print("Legs:")
-        for leg in self.legs_dto:
-            print(f"  Leg Name: {leg.name}, Lanes: {leg.lanes}, Signal Groups: {leg.signal_groups}")
-        print("Allowed Green Signal Combinations:")
-        for combo in self.allowed_green_signal_comb_dto:
-            print(f"  Signal Group: {combo.name}, Compatible Groups: {combo.groups}")
-   
+            self._output_queue.put(self.observable_state)         
 
     def run_simulation(self):
 
@@ -497,14 +541,3 @@ class TrafficSimulationEnvHandler():
 
         self._traci_connection.close()
         self._simulation_is_running = False
-
-
-
-
-
-
-
-
-
-    
-    

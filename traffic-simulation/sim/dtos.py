@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Dict
 from pydantic import BaseModel
 
 class VehicleDto(BaseModel):
+    id: str  
     speed: float
     distance_to_stop: float
     leg: str
@@ -28,6 +29,7 @@ class TrafficSimulationPredictRequestDto(BaseModel):
     legs: List[LegDto]
     allowed_green_signal_combinations: List[AllowedGreenSignalCombinationDto]
     is_terminated: bool
+    vehicle_waiting_time: Dict[str, float]
 
     class Config:
         arbitrary_types_allowed = True

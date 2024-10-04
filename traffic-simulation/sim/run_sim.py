@@ -335,7 +335,7 @@ def run_game():
 
     for episode in range(num_episodes):
         print(f"Episode {episode}\n")
-        test_duration_seconds = 600
+        test_duration_seconds = 60
         random_state = True
         configuration_file = "models/1/glue_configuration.yaml"
         start_time = time()
